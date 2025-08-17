@@ -41,9 +41,6 @@ services:
         condition: service_healthy
     networks:
       - app-network
-    volumes:
-      # Mount app.js for quick development changes (optional - remove in production)
-      - ./app.js:/usr/src/app/app.js:ro
 
 volumes:
   postgres_data:
