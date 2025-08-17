@@ -296,10 +296,119 @@ app.get('/debug/network', (req, res) => {
   });
 });
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server running at http://0.0.0.0:${port}`);
-  console.log('Environment variables:');
+// Enhanced network binding diagnostics
+const server = app.listen(port, '0.0.0.0', () => {
+  console.log('🚀 Server Successfully Started!');
+  console.log('================================');
+  console.log(`📍 Listening on: http://0.0.0.0:${port}`);
+  console.log(`📍 Process ID: ${process.pid}`);
+  console.log(`📍 Working Directory: ${process.cwd()}`);
+  
+  // Get network interface information
+  const os = require('os');
+  const networkInterfaces = os.networkInterfaces();
+  console.log('📡 Network Interfaces:');
+  Object.keys(networkInterfaces).forEach(iface => {
+    networkInterfaces[iface].forEach(details => {
+      if (details.family === 'IPv4' && !details.internal) {
+        console.log(`   ${iface}: ${details.address}`);
+      }
+    });
+  });
+  
+  console.log('🌍 Environment Configuration:');
+  console.log(`- NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`- PORT: ${process.env.PORT || 3000}`);
   console.log(`- POSTGRES_HOST: ${process.env.POSTGRES_HOST || 'localhost'}`);
   console.log(`- POSTGRES_DB: ${process.env.POSTGRES_DB || 'testdb'}`);
   console.log(`- POSTGRES_USER: ${process.env.POSTGRES_USER || 'postgres'}`);
+  
+  // Coolify-specific variables
+  if (process.env.COOLIFY_RESOURCE_UUID) {
+    console.log('🔷 Coolify Environment Detected:');
+    console.log(`- COOLIFY_CONTAINER_NAME: ${process.env.COOLIFY_CONTAINER_NAME}`);
+    console.log(`- SERVICE_FQDN_APP: ${process.env.SERVICE_FQDN_APP}`);
+    console.log(`- COOLIFY_URL: ${process.env.COOLIFY_URL}`);
+    console.log(`- COOLIFY_FQDN: ${process.env.COOLIFY_FQDN}`);
+  }
+  
+  console.log('');
+  console.log('🔗 Available Endpoints:');
+  console.log('- Main App: /');
+  console.log('- Health Check: /health');
+  console.log('- Debug Info: /debug/info');
+  console.log('- Database Status: /debug/db');
+  console.log('- Network Info: /debug/network');
+  console.log('- Connection Test: /debug/connection');
+  console.log('');
+  console.log('✅ Server is ready to accept connections!');
+  
+  // Test internal connectivity
+  setTimeout(() => {
+    const http = require('http');
+    const req = http.request({
+      hostname: 'localhost',
+      port: port,
+      path: '/health',
+      method: 'GET'
+    }, (res) => {
+      if (res.statusCode === 200) {
+        console.log('✅ Internal health check passed - server is accessible locally');
+      } else {
+        console.log(`⚠️  Internal health check returned status: ${res.statusCode}`);
+      }
+    });
+    
+    req.on('error', (err) => {
+      console.log(`❌ Internal health check failed: ${err.message}`);
+    });
+    
+    req.end();
+  }, 2000);
+});
+
+// Enhanced connection logging
+server.on('connection', (socket) => {
+  const remoteAddress = socket.remoteAddress;
+  const remotePort = socket.remotePort;
+  console.log(`🔗 New connection from ${remoteAddress}:${remotePort}`);
+  
+  socket.on('close', () => {
+    console.log(`📤 Connection closed from ${remoteAddress}:${remotePort}`);
+  });
+  
+  socket.on('error', (err) => {
+    console.log(`❌ Socket error from ${remoteAddress}:${remotePort}: ${err.message}`);
+  });
+});
+
+// Handle server errors
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${port} is already in use`);
+    process.exit(1);
+  } else if (err.code === 'EACCES') {
+    console.error(`❌ Permission denied to bind to port ${port}`);
+    process.exit(1);
+  } else {
+    console.error(`❌ Server error: ${err.message}`);
+    process.exit(1);
+  }
+});
+
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('📤 SIGTERM received. Shutting down gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed. Process terminated.');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('📤 SIGINT received. Shutting down gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed. Process terminated.');
+    process.exit(0);
+  });
 });
