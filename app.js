@@ -4,7 +4,24 @@ const { Pool } = require('pg');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
+// Enhanced logging for debugging
+console.log('🚀 Starting application...');
+console.log('📊 Application Info:');
+console.log(`- Node.js Version: ${process.version}`);
+console.log(`- Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`- Port: ${port}`);
+console.log(`- Process ID: ${process.pid}`);
+console.log(`- Working Directory: ${process.cwd()}`);
+console.log(`- Platform: ${process.platform}`);
+console.log(`- Architecture: ${process.arch}`);
+
+// Middleware with logging
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.url} - IP: ${req.ip || req.connection.remoteAddress}`);
+  next();
+});
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -177,7 +194,106 @@ function escapeHtml(text) {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
+  console.log('🏥 Health check requested');
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Enhanced diagnostic endpoints for debugging
+app.get('/debug/info', (req, res) => {
+  console.log('🔍 Debug info requested');
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    application: {
+      name: 'simple-fullstack-app',
+      version: '1.0.0',
+      nodeVersion: process.version,
+      platform: process.platform,
+      architecture: process.arch,
+      pid: process.pid,
+      uptime: process.uptime(),
+      workingDirectory: process.cwd(),
+      memoryUsage: process.memoryUsage()
+    },
+    environment: {
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: process.env.PORT,
+      POSTGRES_HOST: process.env.POSTGRES_HOST,
+      POSTGRES_DB: process.env.POSTGRES_DB,
+      POSTGRES_USER: process.env.POSTGRES_USER,
+      POSTGRES_PORT: process.env.POSTGRES_PORT,
+      // Don't expose password for security
+      POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD ? '[SET]' : '[NOT SET]',
+      // Coolify specific variables
+      COOLIFY_BRANCH: process.env.COOLIFY_BRANCH,
+      COOLIFY_RESOURCE_UUID: process.env.COOLIFY_RESOURCE_UUID,
+      COOLIFY_CONTAINER_NAME: process.env.COOLIFY_CONTAINER_NAME,
+      SERVICE_URL_APP: process.env.SERVICE_URL_APP,
+      SERVICE_FQDN_APP: process.env.SERVICE_FQDN_APP,
+      COOLIFY_URL: process.env.COOLIFY_URL,
+      COOLIFY_FQDN: process.env.COOLIFY_FQDN
+    }
+  });
+});
+
+app.get('/debug/db', async (req, res) => {
+  console.log('🗄️ Database debug info requested');
+  try {
+    const client = await pool.connect();
+    const result = await client.query('SELECT COUNT(*) as message_count FROM messages');
+    const dbVersion = await client.query('SELECT version()');
+    client.release();
+    
+    res.json({
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      database: {
+        connected: true,
+        messageCount: parseInt(result.rows[0].message_count),
+        version: dbVersion.rows[0].version,
+        config: {
+          host: process.env.POSTGRES_HOST || 'localhost',
+          database: process.env.POSTGRES_DB || 'testdb',
+          user: process.env.POSTGRES_USER || 'postgres',
+          port: process.env.POSTGRES_PORT || 5432
+        }
+      }
+    });
+  } catch (err) {
+    console.error('❌ Database connection error:', err);
+    res.status(500).json({
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      database: {
+        connected: false,
+        error: err.message,
+        code: err.code
+      }
+    });
+  }
+});
+
+app.get('/debug/network', (req, res) => {
+  console.log('🌐 Network debug info requested');
+  const os = require('os');
+  const networkInterfaces = os.networkInterfaces();
+  
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    network: {
+      hostname: os.hostname(),
+      interfaces: networkInterfaces,
+      request: {
+        ip: req.ip || req.connection.remoteAddress,
+        headers: req.headers,
+        url: req.url,
+        method: req.method,
+        protocol: req.protocol,
+        secure: req.secure
+      }
+    }
+  });
 });
 
 app.listen(port, '0.0.0.0', () => {
