@@ -1,7 +1,4 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
   db:
     image: postgres:15-alpine
     restart: unless-stopped
@@ -17,10 +14,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - app-network
 
-  # Node.js Application
   app:
     build: .
     restart: unless-stopped
@@ -35,12 +29,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - app-network
 
 volumes:
   postgres_data:
-
-networks:
-  app-network:
-    driver: bridge
